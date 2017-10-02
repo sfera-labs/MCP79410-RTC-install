@@ -1,0 +1,35 @@
+#!/bin/bash
+# RTC installation script for MCP79410
+
+if [[ $EUID -ne 0 ]]
+then
+    printf 'This script should run as root.\nExiting.\n'
+    exit 1
+fi
+
+cat > /etc/systemd/system/config-rtc-MCP79410.service << EOF
+[Unit]
+Description=RTC configuration for MCP79410
+
+[Service]
+ExecStart=/usr/local/bin/configrtc.sh
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+cat > /usr/local/bin/configrtc.sh << EOF
+#!/bin/bash
+modprobe i2c-dev
+# Calibrate the clock (default: 0x47). See datasheet for MCP7940N
+i2cset -y 1 0x6f 0x08 0x47
+modprobe i2c:mcp7941x
+echo mcp7941x 0x6f > /sys/class/i2c-dev/i2c-1/device/new_device
+hwclock -s
+EOF
+
+chmod 744 /usr/local/bin/configrtc.sh
+chown root.root /usr/local/bin/configrtc.sh
+systemctl enable config-rtc-MCP79410.service
+
+printf 'Done.\nPlease reboot now.\n'
